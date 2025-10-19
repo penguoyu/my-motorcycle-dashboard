@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import glob
 import numpy as np
-import altair as alt # 我們會更常用到它
+import altair as alt 
 
 # --- 網頁的基本設定 (Layout 設為 "wide" 讓儀表板更寬) ---
 st.set_page_config(
@@ -11,19 +11,30 @@ st.set_page_config(
     layout="wide" 
 )
 
-# --- 1. 讀取「超快速」的 Parquet 檔案 ---
+# --- 1. 讀取「雲端」的 Parquet 檔案 ---
 @st.cache_data
 def load_fast_data():
+    
+    # --- (V9 雲端版修改) ---
+    # 1. 把你 Google Drive 的「檔案 ID」貼在這裡
+    #    *** 我已經幫你填好了！ ***
+    
+    FILE_ID = "1TcA7u3Xsh9hDtOFJEbwsMUfpyosPqBeC" # <-- 你的檔案 ID
+    
+    # 2. 建立一個「直接下載」的網址
+    URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
+    
     try:
-        df_full = pd.read_parquet("all_accidents_data.parquet")
+        # 3. Pandas 可以直接從網址讀取 Parquet 檔！
+        df_full = pd.read_parquet(URL)
         return df_full
-    except FileNotFoundError:
-        st.error("錯誤：找不到 'all_accidents_data.parquet' 檔案。")
-        st.error("請先執行 convert.py 檔案來產生快速讀取檔。")
+    except Exception as e:
+        st.error(f"從 Google Drive 讀取資料失敗：{e}")
+        st.error("請確認：1. 你的 FILE_ID 已正確填入。 2. 你的 Google Drive 檔案連結已設為「知道連結的任何人均可檢視」。")
         st.stop()
 
 
-# --- 2. 資料分析與處理 (V8) ---
+# --- 2. 資料分析與處理 (V8 版) ---
 @st.cache_data
 def analyze_motorcycle_data(df):
     # --- 篩選機車 ---
@@ -73,9 +84,10 @@ def analyze_motorcycle_data(df):
     return df_motorcycle
 
 # --- 3. 建立網頁介面 (Dashboard) ---
+# (以下程式碼 V8 版都一樣，不用動)
 st.title("🏍️ (113年度機車事故)") 
 
-with st.spinner('正在讀取 all_accidents_data.parquet 檔案...'):
+with st.spinner('正在從 Google Drive 讀取 33MB 資料... (第一次啟動會花 10-20 秒)'):
     df_full_data = load_fast_data() 
 
 with st.spinner('正在分析機車事故資料...'):
@@ -118,24 +130,20 @@ with tab1:
     with col1:
         st.subheader("每月事故統計")
         monthly_accidents = filtered_data.groupby('發生月份').size().reset_index(name='件數').set_index('發生月份')
-        st.line_chart(monthly_accidents) # 折線圖的標籤通常沒問題，保留 st.line_chart
+        st.line_chart(monthly_accidents) 
         
     with col2:
         st.subheader("每週事故分布")
-        
-        # --- (V8 修正) ---
-        # 1. 準備資料 (不再 set_index)
         weekly_accidents = filtered_data.groupby('發生星期').size().reset_index(name='件數')
         weekly_accidents['星期標籤'] = weekly_accidents['發生星期'].map({1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日'})
         
-        # 2. 畫圖
         weekly_chart = alt.Chart(weekly_accidents).mark_bar().encode(
             x=alt.X('星期標籤:O', title='星期', sort=['一', '二', '三', '四', '五', '六', '日'], 
-                    axis=alt.Axis(labelAngle=0)), # <-- 強制水平
+                    axis=alt.Axis(labelAngle=0)), 
             y=alt.Y('件數:Q', title='事故件數'),
             tooltip=['星期標籤', '件數']
         ).interactive()
-        st.altair_chart(weekly_chart, use_container_width=True) # <-- 改用 st.altair_chart
+        st.altair_chart(weekly_chart, use_container_width=True) 
     
     st.subheader(f"事故發生時段分析 ({selected_period}) (0-23點)")
     hourly_accidents = filtered_data.groupby('發生小時').size().reset_index(name='件數').set_index('發生小時')
@@ -170,42 +178,34 @@ with tab3:
     
     with col1:
         st.subheader("年齡層分布")
-        
-        # --- (V8 修正) ---
-        # 1. 準備資料
         age_dist = filtered_data.groupby('年齡層').size().reset_index(name='件數')
         age_labels = ['0-17歲', '18-24歲', '25-34歲', '35-44歲', '45-54歲', '55-64歲', '65+歲']
         
-        # 2. 畫圖
         age_chart = alt.Chart(age_dist).mark_bar().encode(
             x=alt.X('年齡層:O', title='年齡層', sort=age_labels, 
-                    axis=alt.Axis(labelAngle=0)), # <-- 強制水平
+                    axis=alt.Axis(labelAngle=0)), 
             y=alt.Y('件數:Q', title='事故件數'),
             tooltip=['年齡層', '件數']
         ).interactive()
-        st.altair_chart(age_chart, use_container_width=True) # <-- 改用 st.altair_chart
+        st.altair_chart(age_chart, use_container_width=True) 
         
     with col2:
         st.subheader("性別分布")
-        
-        # --- (V8 修正) ---
-        # 1. 準備資料
         gender_dist = filtered_data.groupby('性別').size().reset_index(name='件數')
         
-        # 2. 畫圖
         gender_chart = alt.Chart(gender_dist).mark_bar().encode(
             x=alt.X('性別:O', title='性別', 
-                    axis=alt.Axis(labelAngle=0)), # <-- 強制水平
+                    axis=alt.Axis(labelAngle=0)), 
             y=alt.Y('件數:Q', title='事故件數'),
             tooltip=['性別', '件數']
         ).interactive()
-        st.altair_chart(gender_chart, use_container_width=True) # <-- 改用 st.altair_chart
+        st.altair_chart(gender_chart, use_container_width=True) 
 
     st.divider() 
     st.subheader("⛑️ 保護裝備 (安全帽) 分析")
     helmet_data = filtered_data[filtered_data['安全帽'].str.contains('帽', na=False) | (filtered_data['安全帽'] == '未戴')]
     helmet_counts = helmet_data['安全帽'].value_counts().head(5)
-    st.bar_chart(helmet_counts, horizontal=True) # 水平長條圖的標籤通常OK，保留 st.bar_chart
+    st.bar_chart(helmet_counts, horizontal=True) 
 
 # --- Tab 4: 肇事原因 ---
 with tab4:
@@ -214,23 +214,23 @@ with tab4:
     with col1:
         st.subheader("事故碰撞對象 (大類別)")
         type_major_counts = filtered_data['事故型態(大類別)'].value_counts().head(5)
-        st.bar_chart(type_major_counts, horizontal=True) # 水平長條圖
+        st.bar_chart(type_major_counts, horizontal=True) 
     with col2:
         st.subheader("事故型態 (怎麼撞的？)")
         type_minor_counts = filtered_data['事故型態(子類別)'].value_counts().head(5)
-        st.bar_chart(type_minor_counts, horizontal=True) # 水平長條圖
+        st.bar_chart(type_minor_counts, horizontal=True) 
     st.divider()
     col3, col4 = st.columns(2)
     with col3:
         st.subheader("號誌種類分析")
         signal_counts = filtered_data['號誌種類'].value_counts().head(5)
-        st.bar_chart(signal_counts, horizontal=True) # 水平長條圖
+        st.bar_chart(signal_counts, horizontal=True) 
     with col4:
         st.subheader("天候狀況分析")
         weather_accidents = filtered_data['天候'].value_counts().head(5) 
-        st.bar_chart(weather_accidents, horizontal=True) # 水平長條圖
+        st.bar_chart(weather_accidents, horizontal=True) 
 
-# --- (新功能) Tab 5: 交叉分析 ---
+# --- Tab 5: 交叉分析 ---
 with tab5:
     st.header(f"🔥 交叉分析 ({selected_period})")
     
@@ -246,10 +246,9 @@ with tab5:
     )
     crosstab_melted = crosstab_df.reset_index().melt(id_vars='年齡層', var_name='肇因', value_name='件數')
     
-    # (V7 修正)
     age_labels_heatmap = ['0-17歲', '18-24歲', '25-34歲', '35-44歲', '45-54歲', '55-64歲', '65+歲']
     heatmap = alt.Chart(crosstab_melted).mark_rect().encode(
-        x=alt.X('年齡層:O', title='年齡層', axis=alt.Axis(labelAngle=0), sort=age_labels_heatmap), # <-- 修正！
+        x=alt.X('年齡層:O', title='年齡層', axis=alt.Axis(labelAngle=0), sort=age_labels_heatmap), 
         y=alt.Y('肇因:O', title='肇事原因'),
         color=alt.Color('件數:Q', title='事故件數'),
         tooltip=['年齡層', '肇因', '件數']
@@ -275,7 +274,7 @@ with tab5:
     
     heatmap_weekday = alt.Chart(crosstab_weekday_melted).mark_rect().encode(
         x=alt.X('發生星期:O', title='星期', sort=['一', '二', '三', '四', '五', '六', '日'], 
-                axis=alt.Axis(labelAngle=0)), # <-- 我也幫這張圖加上了！
+                axis=alt.Axis(labelAngle=0)), 
         y=alt.Y('肇因:O', title='肇事原因'),
         color=alt.Color('件數:Q', title='事故件數'),
         tooltip=['發生星期', '肇因', '件數']
